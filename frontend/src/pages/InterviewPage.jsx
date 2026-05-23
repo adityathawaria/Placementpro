@@ -1,23 +1,16 @@
 // src/pages/InterviewPage.jsx
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { generateQuestion, analyzeAnswer, generateReport } from "../services/api";
-import {
-  Mic, MicOff, Video, VideoOff, Clock, Brain,
-  AlertCircle, Loader2, CheckCircle
-} from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Clock, Brain, AlertCircle, Loader2, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 const TOTAL_QUESTIONS = 8;
 const ANSWER_TIME_LIMIT = 120;
-
 const DOMAIN_LABELS = {
-  web_development: "Web Development",
-  data_science_ml: "Data Science / ML",
-  cloud_computing: "Cloud Computing",
-  core_cs: "Core Computer Science",
-  hr_behavioral: "HR / Behavioral",
+  web_development: "Web Development", data_science_ml: "Data Science / ML",
+  cloud_computing: "Cloud Computing", core_cs: "Core Computer Science", hr_behavioral: "HR / Behavioral",
 };
 
 export default function InterviewPage() {
@@ -26,24 +19,20 @@ export default function InterviewPage() {
   const { user, profile } = useAuth();
   const domain = location.state?.domain || "core_cs";
 
-  // ── UI state (for rendering) ─────────────────────────────────────────────
-  const [phase, setPhase] = useState("setup"); // setup | interview | submitting
+  const [phase, setPhase] = useState("setup");
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
-  const [mediaError, setMediaError] = useState(null);
   const [cameraOn, setCameraOn] = useState(true);
+  const [mediaError, setMediaError] = useState(null);
 
-  // ── Refs (always-current values used inside async callbacks) ─────────────
   const questionIndexRef = useRef(0);
   const questionHistoryRef = useRef([]);
   const questionResultsRef = useRef([]);
   const currentQuestionRef = useRef(null);
-  const lastScoreRef = useRef(50);
-
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -51,129 +40,74 @@ export default function InterviewPage() {
   const framesRef = useRef([]);
   const timerRef = useRef(null);
   const frameIntervalRef = useRef(null);
-  const processingRef = useRef(false); // prevent double-submit
+  const processingRef = useRef(false);
 
-  // ── Keep refs in sync with state ─────────────────────────────────────────
   useEffect(() => { questionIndexRef.current = questionIndex; }, [questionIndex]);
 
-  // ── Camera ────────────────────────────────────────────────────────────────
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: 640, height: 480 },
-        audio: true,
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
-      setMediaError(null);
-      setCameraOn(true);
-    } catch (err) {
+      setCameraOn(true); setMediaError(null);
+    } catch {
       setMediaError("Camera/mic access denied. Please allow permissions and refresh.");
       setCameraOn(false);
     }
   };
 
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  };
+  const stopCamera = () => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
 
-  // ── Load question ─────────────────────────────────────────────────────────
   const loadQuestion = async (index, score = 50) => {
-    setLoadingQuestion(true);
-    setCurrentQuestion(null);
+    setLoadingQuestion(true); setCurrentQuestion(null);
     try {
-      const q = await generateQuestion({
-        domain,
-        questionHistory: questionHistoryRef.current,
-        resumeText: profile?.resumeText || "",
-        questionIndex: index,
-        lastScore: score,
-      });
-      currentQuestionRef.current = q;
-      setCurrentQuestion(q);
-    } catch (err) {
-      const fallback = {
-        question: "Describe a technical challenge you have faced and how you solved it.",
-        difficulty: "medium",
-        topic: "General",
-        question_type: "technical",
-        hints: [],
-      };
-      currentQuestionRef.current = fallback;
-      setCurrentQuestion(fallback);
-    } finally {
-      setLoadingQuestion(false);
-    }
+      const q = await generateQuestion({ domain, questionHistory: questionHistoryRef.current, resumeText: profile?.resumeText || "", questionIndex: index, lastScore: score });
+      currentQuestionRef.current = q; setCurrentQuestion(q);
+    } catch {
+      const fb = { question: "Describe a key concept in this domain that excites you.", difficulty: "medium", topic: "General", question_type: "technical", hints: [] };
+      currentQuestionRef.current = fb; setCurrentQuestion(fb);
+    } finally { setLoadingQuestion(false); }
   };
 
-  // ── Capture frame ─────────────────────────────────────────────────────────
   const captureFrame = () => {
     if (!videoRef.current || !cameraOn) return;
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 320;
-      canvas.height = 240;
-      canvas.getContext("2d").drawImage(videoRef.current, 0, 0, 320, 240);
-      const b64 = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
-      framesRef.current.push(b64);
+      const c = document.createElement("canvas"); c.width = 320; c.height = 240;
+      c.getContext("2d").drawImage(videoRef.current, 0, 0, 320, 240);
+      framesRef.current.push(c.toDataURL("image/jpeg", 0.5).split(",")[1]);
       if (framesRef.current.length > 20) framesRef.current = framesRef.current.slice(-20);
     } catch (_) {}
   };
 
-  // ── Start recording ───────────────────────────────────────────────────────
   const startRecording = () => {
     if (!streamRef.current || processingRef.current) return;
-    chunksRef.current = [];
-    framesRef.current = [];
-
+    chunksRef.current = []; framesRef.current = [];
     try {
       const mr = new MediaRecorder(streamRef.current, {
-        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
-          ? "video/webm;codecs=vp8,opus"
-          : "video/webm",
+        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus") ? "video/webm;codecs=vp8,opus" : "video/webm",
       });
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.start(200);
-      mediaRecorderRef.current = mr;
-    } catch (err) {
-      toast.error("Could not start recording. Check mic/camera permissions.");
-      return;
-    }
+      mr.start(200); mediaRecorderRef.current = mr;
+    } catch { toast.error("Could not start recording."); return; }
 
-    setIsRecording(true);
-    setTimeLeft(ANSWER_TIME_LIMIT);
-
+    setIsRecording(true); setTimeLeft(ANSWER_TIME_LIMIT);
     frameIntervalRef.current = setInterval(captureFrame, 2500);
-
     let remaining = ANSWER_TIME_LIMIT;
     timerRef.current = setInterval(() => {
-      remaining -= 1;
-      setTimeLeft(remaining);
-      if (remaining <= 0) {
-        clearInterval(timerRef.current);
-        submitAnswer();
-      }
+      remaining -= 1; setTimeLeft(remaining);
+      if (remaining <= 0) { clearInterval(timerRef.current); submitAnswer(); }
     }, 1000);
   };
 
-  // ── Submit answer (stop recording + analyze + advance) ────────────────────
   const submitAnswer = async () => {
-    if (processingRef.current) return; // guard double-fire
+    if (processingRef.current) return;
     processingRef.current = true;
-
-    clearInterval(timerRef.current);
-    clearInterval(frameIntervalRef.current);
-    setIsRecording(false);
-    setIsAnalyzing(true);
+    clearInterval(timerRef.current); clearInterval(frameIntervalRef.current);
+    setIsRecording(false); setIsAnalyzing(true);
 
     const mr = mediaRecorderRef.current;
-    // Stop recorder and wait for final data
     if (mr && mr.state !== "inactive") {
-      await new Promise((resolve) => {
-        mr.onstop = resolve;
-        mr.stop();
-      });
+      await new Promise((resolve) => { mr.onstop = resolve; mr.stop(); });
     }
 
     const audioBlob = new Blob(chunksRef.current, { type: "video/webm" });
@@ -181,144 +115,87 @@ export default function InterviewPage() {
     const idx = questionIndexRef.current;
     const q = currentQuestionRef.current;
 
-    let analysisResult = null;
-    try {
-      analysisResult = await analyzeAnswer({
-        audioBlob,
-        frames,
-        questionIndex: idx,
-      });
-    } catch (err) {
-      console.warn("Analysis failed, using defaults:", err);
-    }
+    let res = null;
+    try { res = await analyzeAnswer({ audioBlob, frames, questionIndex: idx }); }
+    catch (err) { console.warn("Analysis failed:", err); }
 
     const answerData = {
-      question: q?.question || "",
-      question_index: idx,
-      question_type: q?.question_type || "technical",
-      topic: q?.topic || "",
-      transcribedAnswer: analysisResult?.transcription?.text || "",
-      dominantEmotion: analysisResult?.emotion?.dominant_emotion || "neutral",
-      emotionDistribution: analysisResult?.emotion?.emotion_distribution || {},
-      fillerWords: analysisResult?.transcription?.filler_words || [],
-      fillerWordCount: analysisResult?.transcription?.filler_word_count || 0,
-      wordsPerMinute: analysisResult?.transcription?.words_per_minute || 0,
-      eyeContactScore: analysisResult?.scores?.eye_contact_score ?? 70,
-      confidenceScore: analysisResult?.scores?.confidence_score ?? 70,
-      communicationScore: analysisResult?.scores?.communication_score ?? 70,
-      speakingScore: analysisResult?.scores?.speaking_score ?? 70,
-      duration: analysisResult?.transcription?.duration_seconds || 0,
+      question: q?.question || "", question_index: idx,
+      question_type: q?.question_type || "technical", topic: q?.topic || "",
+      transcribedAnswer: res?.transcription?.text || "",
+      dominantEmotion: res?.emotion?.dominant_emotion || "neutral",
+      emotionDistribution: res?.emotion?.emotion_distribution || {},
+      fillerWords: res?.transcription?.filler_words || [],
+      fillerWordCount: res?.transcription?.filler_word_count || 0,
+      wordsPerMinute: res?.transcription?.words_per_minute || 0,
+      eyeContactScore: res?.scores?.eye_contact_score ?? 70,
+      confidenceScore: res?.scores?.confidence_score ?? 70,
+      communicationScore: res?.scores?.communication_score ?? 70,
+      speakingScore: res?.scores?.speaking_score ?? 70,
+      duration: res?.transcription?.duration_seconds || 0,
     };
 
-    // Append to history refs
-    questionHistoryRef.current.push({
-      question: answerData.question,
-      answer: answerData.transcribedAnswer,
-      score: answerData.confidenceScore,
-    });
+    questionHistoryRef.current.push({ question: answerData.question, answer: answerData.transcribedAnswer, score: answerData.confidenceScore });
     questionResultsRef.current.push(answerData);
-    lastScoreRef.current = answerData.confidenceScore;
-
-    setIsAnalyzing(false);
-    processingRef.current = false;
+    setIsAnalyzing(false); processingRef.current = false;
 
     const nextIndex = idx + 1;
-
     if (nextIndex >= TOTAL_QUESTIONS) {
-      // All done — generate report
       await finishInterview(questionResultsRef.current);
     } else {
-      // Move to next question
-      setQuestionIndex(nextIndex);
-      questionIndexRef.current = nextIndex;
+      setQuestionIndex(nextIndex); questionIndexRef.current = nextIndex;
       await loadQuestion(nextIndex, answerData.confidenceScore);
     }
   };
 
-  // ── Finish & generate report ──────────────────────────────────────────────
   const finishInterview = async (results) => {
-    setPhase("submitting");
-    stopCamera();
-
+    setPhase("submitting"); stopCamera();
     const avgConf = results.reduce((a, b) => a + (b.confidenceScore || 50), 0) / results.length;
     const avgComm = results.reduce((a, b) => a + (b.communicationScore || 50), 0) / results.length;
-
     try {
-      const report = await generateReport({
-        userId: user?.uid || "demo",
-        domain,
-        questions: results,
-        confidenceScore: avgConf,
-        communicationScore: avgComm,
-        saveToFirestore: !!user,
-        displayName: profile?.name || user?.displayName || "Anonymous",
-      });
-      navigate(`/report/${report.sessionId || "demo"}`, {
-        state: { session: report.session },
-      });
-    } catch (err) {
-      toast.error("Failed to generate report. Please try again.");
-      setPhase("interview");
-    }
+      const report = await generateReport({ userId: user?.uid || "demo", domain, questions: results, confidenceScore: avgConf, communicationScore: avgComm, saveToFirestore: !!user, displayName: profile?.name || user?.displayName || "Anonymous" });
+      navigate(`/report/${report.sessionId || "demo"}`, { state: { session: report.session } });
+    } catch { toast.error("Failed to generate report."); setPhase("interview"); }
   };
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase === "interview") {
-      startCamera().then(() => loadQuestion(0));
-    }
-    return () => {
-      stopCamera();
-      clearInterval(timerRef.current);
-      clearInterval(frameIntervalRef.current);
-    };
+    if (phase === "interview") { startCamera().then(() => loadQuestion(0)); }
+    return () => { stopCamera(); clearInterval(timerRef.current); clearInterval(frameIntervalRef.current); };
   }, [phase]);
 
   const timerPct = (timeLeft / ANSWER_TIME_LIMIT) * 100;
-  const timerColor = timeLeft > 60 ? "bg-emerald-400" : timeLeft > 30 ? "bg-amber-400" : "bg-red-400";
+  const timerColor = timeLeft > 60 ? "var(--success)" : timeLeft > 30 ? "var(--warning)" : "var(--danger)";
 
-  // ── Setup screen ──────────────────────────────────────────────────────────
+  // ── Setup Screen ──────────────────────────────────────────────────────────
   if (phase === "setup") {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center px-4">
-        <div className="max-w-lg w-full text-center glass p-10 rounded-2xl fade-in-up">
-          <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Brain className="w-9 h-9 text-blue-400" />
+      <div style={{ background: "var(--bg-page)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div className="card p-8 fade-in-up" style={{ maxWidth: 480, width: "100%", textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, background: "var(--accent-light)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+            <Brain className="w-8 h-8" style={{ color: "var(--accent)" }} />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Ready to Interview?</h1>
-          <p className="text-slate-400 mb-2">
-            Domain: <span className="text-blue-400 font-medium">{DOMAIN_LABELS[domain]}</span>
-          </p>
-          <p className="text-slate-500 text-sm mb-8">
-            You'll answer {TOTAL_QUESTIONS} questions. Each answer is recorded and analyzed
-            for speech, emotion, and technical accuracy. Allow camera & microphone when prompted.
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Ready to Interview?</h1>
+          <div className="tag tag-blue" style={{ marginBottom: 12 }}>{DOMAIN_LABELS[domain]}</div>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24, lineHeight: 1.6 }}>
+            You'll answer {TOTAL_QUESTIONS} questions. Each answer is recorded and analyzed for speech, emotion, and technical accuracy.
           </p>
 
           {mediaError && (
-            <div className="flex items-start gap-2 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm mb-6 text-left">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              {mediaError}
+            <div className="alert alert-danger mb-4" style={{ marginBottom: 16, textAlign: "left" }}>
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {mediaError}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 mb-8 text-sm">
-            {[
-              { icon: Video, label: "Webcam required" },
-              { icon: Mic, label: "Microphone required" },
-              { icon: Clock, label: `${ANSWER_TIME_LIMIT}s per question` },
-              { icon: Brain, label: "AI feedback after" },
-            ].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-2 p-3 bg-white/5 rounded-xl text-slate-300">
-                <Icon className="w-4 h-4 text-blue-400" /> {label}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
+            {[{ icon: Video, label: "Webcam required" }, { icon: Mic, label: "Microphone required" }, { icon: Clock, label: `${ANSWER_TIME_LIMIT}s per question` }, { icon: Brain, label: "AI feedback after" }].map(({ icon: Icon, label }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "var(--bg-card-alt)", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-secondary)" }}>
+                <Icon className="w-4 h-4" style={{ color: "var(--accent)" }} /> {label}
               </div>
             ))}
           </div>
 
-          <button
-            id="begin-interview-btn"
-            onClick={() => setPhase("interview")}
-            className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-xl transition-all text-lg glow-blue"
-          >
+          <button id="begin-interview-btn" onClick={() => setPhase("interview")} className="btn-primary"
+            style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: 15 }}>
             Begin Interview
           </button>
         </div>
@@ -326,101 +203,87 @@ export default function InterviewPage() {
     );
   }
 
-  // ── Submitting screen ─────────────────────────────────────────────────────
+  // ── Submitting Screen ─────────────────────────────────────────────────────
   if (phase === "submitting") {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center px-4">
-        <div className="text-center fade-in-up">
-          <Loader2 className="w-16 h-16 text-blue-400 animate-spin mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-white mb-2">Generating Your Report</h2>
-          <p className="text-slate-400">
-            Gemini AI is analyzing your performance across all {TOTAL_QUESTIONS} questions...
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-3 text-slate-500 text-sm">
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-            All answers recorded and analyzed
+      <div style={{ background: "var(--bg-page)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="card p-10 text-center fade-in-up" style={{ maxWidth: 400 }}>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-5" style={{ color: "var(--accent)" }} />
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Generating Your Report</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>AI is analyzing your performance across all {TOTAL_QUESTIONS} questions...</p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, fontSize: 12, color: "var(--text-muted)" }}>
+            <CheckCircle className="w-4 h-4" style={{ color: "var(--success)" }} /> All answers recorded
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Interview screen ──────────────────────────────────────────────────────
+  // ── Interview Screen ──────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen gradient-bg flex flex-col">
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-page)" }}>
       {/* Top bar */}
-      <div className="border-b border-blue-900/40 bg-[#040d1a]/80 backdrop-blur-xl px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Brain className="w-5 h-5 text-blue-400" />
-          <span className="font-semibold text-white text-sm">{DOMAIN_LABELS[domain]}</span>
+      <div style={{ background: "var(--nav-bg)", borderBottom: "1px solid #2d3748", padding: "0 24px", height: 52, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Brain className="w-4 h-4" style={{ color: "#60a5fa" }} />
+          <span style={{ fontWeight: 600, color: "#fff", fontSize: 13 }}>{DOMAIN_LABELS[domain]}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {Array.from({ length: TOTAL_QUESTIONS }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-2 h-2 rounded-full transition-all ${
-                i < questionIndex
-                  ? "bg-emerald-400"
-                  : i === questionIndex
-                  ? "bg-blue-400 scale-125"
-                  : "bg-slate-700"
-              }`}
-            />
+            <div key={i} style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: i < questionIndex ? "var(--success)" : i === questionIndex ? "#60a5fa" : "#374151",
+              transform: i === questionIndex ? "scale(1.3)" : "scale(1)",
+              transition: "all 0.3s",
+            }} />
           ))}
-          <span className="text-slate-400 text-sm ml-2">
-            {questionIndex + 1}/{TOTAL_QUESTIONS}
-          </span>
+          <span style={{ color: "#9ca3af", fontSize: 12, marginLeft: 8 }}>Q{questionIndex + 1}/{TOTAL_QUESTIONS}</span>
         </div>
       </div>
 
-      {/* Main layout */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left: Question + controls */}
-        <div className="flex-1 flex flex-col p-6 lg:p-10 lg:border-r border-blue-900/30">
-          {/* Timer bar */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <Clock className="w-4 h-4" /> Time remaining
+      <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden" }}>
+        {/* Left: Question */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 32px", borderRight: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          {/* Timer */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+                <Clock className="w-3.5 h-3.5" /> Time remaining
               </div>
-              <span className={`text-lg font-bold ${timeLeft <= 30 ? "text-red-400" : "text-white"}`}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: timeLeft <= 30 ? "var(--danger)" : "var(--text-primary)" }}>
                 {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
               </span>
             </div>
-            <div className="h-1.5 bg-blue-900/40 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ${timerColor}`}
-                style={{ width: `${timerPct}%` }}
-              />
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${timerPct}%`, background: timerColor }} />
             </div>
           </div>
 
-          {/* Question badge */}
+          {/* Question type badge */}
           {currentQuestion && !isAnalyzing && (
-            <div className="mb-4">
-              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">
-                {currentQuestion.question_type?.replace("_", " ").toUpperCase()} ·{" "}
-                {currentQuestion.difficulty?.toUpperCase()} · {currentQuestion.topic}
-              </span>
+            <div style={{ marginBottom: 16 }}>
+              <span className="tag tag-blue" style={{ marginRight: 6 }}>{currentQuestion.question_type?.replace("_", " ").toUpperCase()}</span>
+              <span className="tag tag-gray" style={{ marginRight: 6 }}>{currentQuestion.difficulty?.toUpperCase()}</span>
+              {currentQuestion.topic && <span className="tag tag-gray">{currentQuestion.topic}</span>}
             </div>
           )}
 
-          {/* Question text */}
-          <div className="flex-1 flex items-start">
+          {/* Question */}
+          <div style={{ flex: 1, display: "flex", alignItems: "flex-start" }}>
             {isAnalyzing ? (
-              <div className="w-full flex flex-col items-center justify-center gap-4 py-10">
-                <Loader2 className="w-10 h-10 text-blue-400 animate-spin" />
-                <p className="text-slate-400 text-lg">Analyzing your answer...</p>
-                <p className="text-slate-600 text-sm">Transcribing speech & detecting emotions</p>
+              <div style={{ width: "100%", textAlign: "center", paddingTop: 40 }}>
+                <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{ color: "var(--accent)" }} />
+                <p style={{ fontSize: 15, color: "var(--text-secondary)", fontWeight: 500 }}>Analyzing your answer...</p>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>Transcribing speech & detecting emotions</p>
               </div>
             ) : loadingQuestion ? (
-              <div className="w-full space-y-3 pt-2">
-                <div className="skeleton h-7 w-full rounded-lg" />
-                <div className="skeleton h-7 w-4/5 rounded-lg" />
-                <div className="skeleton h-7 w-3/5 rounded-lg" />
+              <div style={{ width: "100%" }}>
+                <div className="skeleton" style={{ height: 28, marginBottom: 12, borderRadius: 8 }} />
+                <div className="skeleton" style={{ height: 28, width: "80%", marginBottom: 12, borderRadius: 8 }} />
+                <div className="skeleton" style={{ height: 28, width: "60%", borderRadius: 8 }} />
               </div>
             ) : currentQuestion ? (
-              <h2 className="text-2xl lg:text-3xl font-bold text-white leading-tight fade-in-up">
+              <h2 style={{ fontSize: "clamp(18px,2.5vw,26px)", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.4 }} className="fade-in-up">
                 {currentQuestion.question}
               </h2>
             ) : null}
@@ -428,12 +291,12 @@ export default function InterviewPage() {
 
           {/* Hints */}
           {currentQuestion?.hints?.length > 0 && !isRecording && !isAnalyzing && (
-            <div className="mt-4 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Hints</p>
-              <ul className="space-y-1">
+            <div style={{ marginTop: 16, padding: "14px 16px", background: "var(--accent-light)", border: "1px solid #bfdbfe", borderRadius: "var(--radius)" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Hints</p>
+              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
                 {currentQuestion.hints.map((h, i) => (
-                  <li key={i} className="text-slate-400 text-sm flex items-start gap-2">
-                    <span className="text-blue-500 mt-0.5">•</span> {h}
+                  <li key={i} style={{ fontSize: 12, color: "#1e40af", display: "flex", gap: 6 }}>
+                    <span style={{ color: "var(--accent)" }}>•</span> {h}
                   </li>
                 ))}
               </ul>
@@ -441,31 +304,26 @@ export default function InterviewPage() {
           )}
 
           {/* Controls */}
-          <div className="mt-8">
+          <div style={{ marginTop: 24 }}>
             {isAnalyzing ? (
-              <div className="w-full py-4 bg-white/5 rounded-xl text-center text-slate-400 text-sm">
+              <div style={{ padding: "14px", background: "var(--bg-card-alt)", border: "1px solid var(--border)", borderRadius: "var(--radius)", textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>
                 Please wait while we analyze your answer...
               </div>
             ) : !isRecording ? (
-              <button
-                id="start-answer-btn"
-                onClick={startRecording}
+              <button id="start-answer-btn" onClick={startRecording}
                 disabled={loadingQuestion || !currentQuestion}
-                className="w-full flex items-center justify-center gap-2 py-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all glow-blue"
-              >
+                className="btn-primary"
+                style={{ width: "100%", justifyContent: "center", padding: "13px", fontSize: 15 }}>
                 <Mic className="w-5 h-5" /> Start Answering
               </button>
             ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-center gap-2 text-sm text-red-400">
-                  <span className="w-2 h-2 rounded-full bg-red-400 recording-dot" />
-                  Recording... speak your answer clearly
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10, fontSize: 12, color: "var(--danger)" }}>
+                  <span className="w-2 h-2 recording-dot" style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--danger)" }} />
+                  Recording... speak clearly
                 </div>
-                <button
-                  id="stop-answer-btn"
-                  onClick={submitAnswer}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-bold rounded-xl transition-all"
-                >
+                <button id="stop-answer-btn" onClick={submitAnswer}
+                  style={{ width: "100%", padding: "13px", background: "var(--danger-light)", border: "1.5px solid #fca5a5", color: "var(--danger)", fontWeight: 700, borderRadius: "var(--radius)", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <MicOff className="w-5 h-5" /> Stop & Submit Answer
                 </button>
               </div>
@@ -474,34 +332,27 @@ export default function InterviewPage() {
         </div>
 
         {/* Right: Webcam */}
-        <div className="lg:w-96 flex flex-col items-center justify-center p-6 bg-black/20">
-          <div className="relative w-full aspect-video bg-[#071428] rounded-2xl overflow-hidden border border-blue-900/40">
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className={`w-full h-full object-cover ${!cameraOn ? "hidden" : ""}`}
-            />
+        <div style={{ width: 340, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, background: "#1a1d23" }}>
+          <div style={{ width: "100%", aspectRatio: "4/3", background: "#111", borderRadius: 12, overflow: "hidden", border: "1px solid #374151", position: "relative" }}>
+            <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", display: cameraOn ? "block" : "none" }} />
             {!cameraOn && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
-                <VideoOff className="w-12 h-12 mb-2" />
-                <p className="text-sm">Camera unavailable</p>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#4b5563" }}>
+                <VideoOff className="w-10 h-10 mb-2" /> <p style={{ fontSize: 12 }}>Camera unavailable</p>
               </div>
             )}
             {isRecording && (
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-red-400 recording-dot" />
-                <span className="text-white text-xs font-medium">REC</span>
+              <div style={{ position: "absolute", top: 10, left: 10, display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.7)", padding: "4px 10px", borderRadius: 99 }}>
+                <span className="recording-dot" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#ef4444" }} />
+                <span style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>REC</span>
               </div>
             )}
             {isAnalyzing && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#60a5fa" }} />
               </div>
             )}
           </div>
-          <p className="text-slate-500 text-xs mt-3 text-center">
+          <p style={{ fontSize: 11, color: "#6b7280", marginTop: 10, textAlign: "center" }}>
             Look directly at the camera for best eye contact score
           </p>
         </div>

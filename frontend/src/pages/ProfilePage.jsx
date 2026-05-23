@@ -3,23 +3,20 @@ import { useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { parseResume } from "../services/api";
-// Storage upload removed — resume text stored directly in Firestore (free plan compatible)
-import { Upload, User, BookOpen, Save, CheckCircle, Loader2, X, FileText } from "lucide-react";
+import { Upload, BookOpen, Save, CheckCircle, Loader2, X, FileText, User, GraduationCap } from "lucide-react";
 import toast from "react-hot-toast";
 
-const COLLEGE_DOMAINS = ["B.Tech", "M.Tech", "BCA", "MCA", "B.Sc CS", "MBA Tech", "Other"];
+const DEGREES = ["B.Tech", "M.Tech", "BCA", "MCA", "B.Sc CS", "MBA Tech", "Other"];
 
 export default function ProfilePage() {
   const { user, profile, updateProfile } = useAuth();
   const fileRef = useRef(null);
-
   const [form, setForm] = useState({
     name: profile?.name || "",
     college: profile?.college || "",
     degree: profile?.degree || "",
     graduationYear: profile?.graduationYear || "",
   });
-
   const [resumeFile, setResumeFile] = useState(null);
   const [parsedData, setParsedData] = useState(null);
   const [parsing, setParsing] = useState(false);
@@ -28,27 +25,21 @@ export default function ProfilePage() {
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.name.endsWith(".pdf")) {
-      toast.error("Please upload a PDF file");
-      return;
-    }
+    if (!file.name.endsWith(".pdf")) { toast.error("Please upload a PDF file"); return; }
     setResumeFile(file);
     setParsing(true);
     try {
       const data = await parseResume(file);
       setParsedData(data);
       toast.success(`Resume parsed! Found ${data.all_skills?.length || 0} skills.`);
-    } catch (err) {
+    } catch {
       toast.error("Resume parsing failed. You can still save your profile.");
-    } finally {
-      setParsing(false);
-    }
+    } finally { setParsing(false); }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Resume text is stored in Firestore directly — no Storage/paid plan needed
       await updateProfile({
         ...form,
         resumeText: parsedData?.text || profile?.resumeText || "",
@@ -57,102 +48,125 @@ export default function ProfilePage() {
         resumeFileName: resumeFile?.name || profile?.resumeFileName || "",
       });
       toast.success("Profile saved!");
-    } catch (err) {
-      toast.error("Failed to save profile.");
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error("Failed to save profile."); }
+    finally { setSaving(false); }
   };
 
   const skills = parsedData?.skills || profile?.resumeSkills || {};
+  const inputStyle = {
+    width: "100%", padding: "9px 13px",
+    background: "#fff", border: "1.5px solid var(--border)",
+    borderRadius: "var(--radius)", fontFamily: "inherit",
+    fontSize: 13, color: "var(--text-primary)", outline: "none",
+    transition: "border-color 0.15s",
+  };
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div style={{ background: "var(--bg-page)", minHeight: "100vh" }}>
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 pt-24 pb-12">
-        <div className="mb-8 fade-in-up">
-          <h1 className="text-3xl font-bold text-white mb-1">Your Profile</h1>
-          <p className="text-slate-400">Update your information and upload your resume for personalised questions.</p>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "80px 16px 48px" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)" }}>My Profile</h1>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
+            Update your details and upload your resume for personalised interview questions.
+          </p>
         </div>
 
-        <div className="space-y-6">
-          {/* Avatar & basic info */}
-          <div className="glass p-6 rounded-2xl fade-in-up" style={{ animationDelay: '0.1s' }}>
-            <div className="flex items-center gap-4 mb-6">
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Avatar + Info */}
+          <div className="card p-6">
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
               <img
-                src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(form.name)}&background=3b82f6&color=fff&size=80`}
+                src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(form.name || "U")}&background=2563eb&color=fff&size=64`}
                 alt="avatar"
-                className="w-16 h-16 rounded-2xl ring-2 ring-blue-500/40"
+                style={{ width: 52, height: 52, borderRadius: 12, border: "2px solid var(--border)" }}
               />
               <div>
-                <div className="text-lg font-semibold text-white">{user?.displayName}</div>
-                <div className="text-slate-400 text-sm">{user?.email}</div>
+                <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{user?.displayName}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{user?.email}</div>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {[
-                { key: "name", label: "Full Name", placeholder: "Your full name" },
-                { key: "college", label: "College / University", placeholder: "IIT Delhi, BITS Pilani..." },
-                { key: "graduationYear", label: "Graduation Year", placeholder: "2025" },
+                { key: "name", label: "Full Name", placeholder: "Your full name", icon: User },
+                { key: "college", label: "College / University", placeholder: "IIT Delhi, BITS Pilani...", icon: GraduationCap },
+                { key: "graduationYear", label: "Graduation Year", placeholder: "2025", icon: null },
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">{label}</label>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    {label}
+                  </label>
                   <input
                     id={`profile-${key}`}
                     type="text"
                     value={form[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                     placeholder={placeholder}
-                    className="w-full px-4 py-3 bg-white/5 border border-blue-900/40 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/60 transition-colors"
+                    style={inputStyle}
+                    onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+                    onBlur={(e) => e.target.style.borderColor = "var(--border)"}
                   />
                 </div>
               ))}
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1.5">Degree</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Degree
+                </label>
                 <select
                   id="profile-degree"
                   value={form.degree}
                   onChange={(e) => setForm({ ...form, degree: e.target.value })}
-                  className="w-full px-4 py-3 bg-[#071428] border border-blue-900/40 rounded-xl text-white focus:outline-none focus:border-blue-500/60 transition-colors"
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                  onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+                  onBlur={(e) => e.target.style.borderColor = "var(--border)"}
                 >
                   <option value="">Select degree...</option>
-                  {COLLEGE_DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {DEGREES.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
             </div>
           </div>
 
           {/* Resume Upload */}
-          <div className="glass p-6 rounded-2xl fade-in-up" style={{ animationDelay: '0.2s' }}>
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-400" />
-              Resume (PDF)
-            </h2>
+          <div className="card p-6">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <FileText className="w-4 h-4" style={{ color: "var(--accent)" }} />
+              <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>Resume Upload</span>
+              <span className="tag tag-gray" style={{ marginLeft: "auto" }}>PDF only</span>
+            </div>
 
             {!resumeFile ? (
               <button
                 onClick={() => fileRef.current?.click()}
-                className="w-full border-2 border-dashed border-blue-500/30 hover:border-blue-500/60 rounded-xl p-10 text-center transition-all group"
+                style={{
+                  width: "100%", border: "2px dashed var(--border)", borderRadius: "var(--radius-lg)",
+                  padding: "32px 16px", textAlign: "center", background: "var(--bg-card-alt)",
+                  cursor: "pointer", transition: "border-color 0.2s, background 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.background = "var(--accent-light)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-card-alt)"; }}
               >
-                <Upload className="w-10 h-10 text-blue-400/60 group-hover:text-blue-400 mx-auto mb-3 transition-colors" />
-                <p className="text-slate-400 group-hover:text-slate-300 transition-colors">Click to upload your resume</p>
-                <p className="text-slate-500 text-sm mt-1">PDF only · Max 10 MB</p>
+                <Upload className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--text-muted)" }} />
+                <p style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 500 }}>Click to upload your resume</p>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>PDF · Max 10 MB</p>
               </button>
             ) : (
-              <div className="flex items-center justify-between p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-                <div className="flex items-center gap-3">
-                  {parsing ? (
-                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                  ) : (
-                    <CheckCircle className="w-5 h-5 text-emerald-400" />
-                  )}
-                  <div>
-                    <div className="text-white text-sm font-medium">{resumeFile.name}</div>
-                    <div className="text-slate-400 text-xs">{parsing ? "Parsing..." : "Parsed successfully"}</div>
-                  </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--success-light)", border: "1px solid #86efac", borderRadius: "var(--radius)" }}>
+                {parsing ? (
+                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--success)", flexShrink: 0 }} />
+                ) : (
+                  <CheckCircle className="w-5 h-5" style={{ color: "var(--success)", flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{resumeFile.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{parsing ? "Parsing resume..." : "Parsed successfully"}</div>
                 </div>
-                <button onClick={() => { setResumeFile(null); setParsedData(null); }} className="text-slate-500 hover:text-red-400 transition-colors">
+                <button onClick={() => { setResumeFile(null); setParsedData(null); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -162,22 +176,20 @@ export default function ProfilePage() {
 
           {/* Extracted Skills */}
           {Object.keys(skills).length > 0 && (
-            <div className="glass p-6 rounded-2xl fade-in-up">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-blue-400" />
-                Extracted Skills
-              </h2>
-              <div className="space-y-3">
+            <div className="card p-6">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <BookOpen className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>Extracted Skills</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {Object.entries(skills).map(([cat, skillList]) => (
                   <div key={cat}>
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
                       {cat.replace(/_/g, " ")}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {skillList.map((s) => (
-                        <span key={s} className="px-3 py-1 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded-full">
-                          {s}
-                        </span>
+                        <span key={s} className="tag tag-blue">{s}</span>
                       ))}
                     </div>
                   </div>
@@ -186,13 +198,15 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Save button */}
           <button
             id="save-profile-btn"
             onClick={handleSave}
             disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-60 text-white font-bold rounded-xl transition-all"
+            className="btn-primary"
+            style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: 14 }}
           >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? "Saving..." : "Save Profile"}
           </button>
         </div>

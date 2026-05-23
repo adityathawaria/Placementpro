@@ -13,9 +13,6 @@ const DOMAINS = [
     icon: "💻",
     description: "React, APIs, CSS, performance, security, browser internals",
     topics: ["JavaScript", "React", "Node.js", "REST APIs", "CSS", "Performance"],
-    gradient: "from-blue-500 to-cyan-400",
-    border: "border-blue-500/40",
-    bg: "hover:bg-blue-500/5",
   },
   {
     id: "data_science_ml",
@@ -23,9 +20,6 @@ const DOMAINS = [
     icon: "🤖",
     description: "ML algorithms, deep learning, NLP, statistics, model deployment",
     topics: ["Python", "ML Algorithms", "Neural Networks", "NLP", "Statistics"],
-    gradient: "from-violet-500 to-purple-400",
-    border: "border-violet-500/40",
-    bg: "hover:bg-violet-500/5",
   },
   {
     id: "cloud_computing",
@@ -33,9 +27,6 @@ const DOMAINS = [
     icon: "☁️",
     description: "AWS/GCP/Azure, Docker, Kubernetes, serverless, system design",
     topics: ["AWS", "Docker", "Kubernetes", "Serverless", "System Design"],
-    gradient: "from-cyan-500 to-sky-400",
-    border: "border-cyan-500/40",
-    bg: "hover:bg-cyan-500/5",
   },
   {
     id: "core_cs",
@@ -43,9 +34,6 @@ const DOMAINS = [
     icon: "🧮",
     description: "Data structures, algorithms, OS, networks, databases",
     topics: ["DSA", "Operating Systems", "Networking", "DBMS", "OOP"],
-    gradient: "from-emerald-500 to-teal-400",
-    border: "border-emerald-500/40",
-    bg: "hover:bg-emerald-500/5",
   },
   {
     id: "hr_behavioral",
@@ -53,14 +41,14 @@ const DOMAINS = [
     icon: "🎯",
     description: "Situational, STAR-method, leadership, teamwork, motivation",
     topics: ["Leadership", "Teamwork", "Problem Solving", "Communication", "Goal Setting"],
-    gradient: "from-orange-500 to-amber-400",
-    border: "border-orange-500/40",
-    bg: "hover:bg-orange-500/5",
   },
 ];
 
+const DIFFICULTIES = ["Easy", "Medium", "Hard"];
+
 export default function DomainSelectorPage() {
   const [selected, setSelected] = useState(null);
+  const [difficulty, setDifficulty] = useState("Medium");
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -69,78 +57,329 @@ export default function DomainSelectorPage() {
       toast.error("Please select a domain first");
       return;
     }
-    navigate("/interview", { state: { domain: selected } });
+    navigate("/interview", { state: { domain: selected, difficulty } });
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-page, #f0f2f5)",
+        fontFamily: "'Inter', 'Segoe UI', sans-serif",
+      }}
+    >
+      <style>{`
+        :root {
+          --bg-page: #f0f2f5;
+          --bg-card: #ffffff;
+          --bg-card-alt: #f8f9fb;
+          --border: #e2e5ea;
+          --text-primary: #111827;
+          --text-secondary: #4b5563;
+          --text-muted: #9ca3af;
+          --accent: #2563eb;
+          --accent-light: #dbeafe;
+          --shadow: 0 1px 4px rgba(0,0,0,0.08);
+          --radius: 10px;
+          --radius-lg: 14px;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .ds-fadein { animation: fadeInUp 0.4s ease both; }
+        .domain-card {
+          background: var(--bg-card);
+          border: 1.5px solid var(--border);
+          border-radius: var(--radius-lg);
+          padding: 22px 20px 18px;
+          cursor: pointer;
+          text-align: left;
+          width: 100%;
+          transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+          box-shadow: var(--shadow);
+          position: relative;
+        }
+        .domain-card:hover {
+          border-color: var(--accent);
+          box-shadow: 0 4px 16px rgba(37,99,235,0.13);
+        }
+        .domain-card.selected {
+          border-color: var(--accent);
+          background: #f0f5ff;
+          box-shadow: 0 0 0 3px rgba(37,99,235,0.12), 0 4px 16px rgba(37,99,235,0.10);
+        }
+        .diff-pill {
+          padding: 8px 22px;
+          border-radius: 50px;
+          border: 1.5px solid var(--border);
+          background: var(--bg-card);
+          color: var(--text-secondary);
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .diff-pill:hover { border-color: var(--accent); color: var(--accent); }
+        .diff-pill.active {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: #fff;
+          box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+        }
+        .topic-tag {
+          padding: 3px 9px;
+          font-size: 11px;
+          border-radius: 6px;
+          background: var(--bg-page);
+          color: var(--text-muted);
+          border: 1px solid var(--border);
+          font-weight: 500;
+        }
+        .start-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 15px 24px;
+          background: var(--accent);
+          color: #fff;
+          font-size: 16px;
+          font-weight: 700;
+          border: none;
+          border-radius: var(--radius);
+          cursor: pointer;
+          box-shadow: 0 2px 12px rgba(37,99,235,0.25);
+          transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+          letter-spacing: -0.2px;
+        }
+        .start-btn:hover:not(:disabled) {
+          background: #1d4ed8;
+          box-shadow: 0 4px 20px rgba(37,99,235,0.35);
+          transform: translateY(-1px);
+        }
+        .start-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+      `}</style>
+
       <Navbar />
-      <div className="max-w-4xl mx-auto px-4 pt-24 pb-12">
-        <div className="text-center mb-10 fade-in-up">
-          <h1 className="text-4xl font-bold text-white mb-3">
-            Choose Your{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
-              Interview Domain
-            </span>
+
+      <div
+        style={{
+          maxWidth: "860px",
+          margin: "0 auto",
+          padding: "100px 16px 60px",
+        }}
+      >
+        {/* Page Header */}
+        <div
+          className="ds-fadein"
+          style={{ textAlign: "center", marginBottom: "40px" }}
+        >
+          <h1
+            style={{
+              fontSize: "30px",
+              fontWeight: "800",
+              color: "var(--text-primary)",
+              margin: "0 0 10px",
+              letterSpacing: "-0.5px",
+            }}
+          >
+            Select Interview Domain
           </h1>
-          <p className="text-slate-400">Select the area you want to practice. Questions will be tailored to your domain and resume.</p>
+          <p style={{ fontSize: "15px", color: "var(--text-secondary)", margin: 0 }}>
+            Select the area you want to practice. Questions will be tailored to your domain and resume.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
+        {/* Domain Cards Grid */}
+        <div
+          className="ds-fadein"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: "16px",
+            marginBottom: "32px",
+            animationDelay: "0.05s",
+          }}
+        >
           {DOMAINS.map((domain, i) => (
             <button
               key={domain.id}
               id={`domain-${domain.id}`}
+              className={`domain-card${selected === domain.id ? " selected" : ""}`}
               onClick={() => setSelected(domain.id)}
-              className={`relative text-left glass p-6 rounded-2xl border transition-all duration-200 ${domain.bg} fade-in-up ${
-                selected === domain.id
-                  ? `${domain.border} ring-2 ring-offset-2 ring-offset-transparent ring-blue-500/50`
-                  : "border-blue-900/30 hover:border-blue-500/30"
-              }`}
-              style={{ animationDelay: `${i * 0.08}s` }}
+              style={{ animationDelay: `${i * 0.06}s` }}
             >
               {selected === domain.id && (
-                <CheckCircle2 className="absolute top-4 right-4 w-5 h-5 text-blue-400" />
+                <CheckCircle2
+                  style={{
+                    position: "absolute",
+                    top: "14px",
+                    right: "14px",
+                    width: "18px",
+                    height: "18px",
+                    color: "var(--accent)",
+                  }}
+                />
               )}
-              <div className={`text-3xl mb-3`}>{domain.icon}</div>
-              <h3 className="text-lg font-bold text-white mb-1">{domain.name}</h3>
-              <p className="text-slate-400 text-sm mb-3">{domain.description}</p>
-              <div className="flex flex-wrap gap-1.5">
+
+              {/* Emoji Icon */}
+              <div style={{ fontSize: "40px", marginBottom: "12px", lineHeight: 1 }}>
+                {domain.icon}
+              </div>
+
+              {/* Domain Name */}
+              <h3
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "700",
+                  color: "var(--text-primary)",
+                  margin: "0 0 5px",
+                  letterSpacing: "-0.2px",
+                }}
+              >
+                {domain.name}
+              </h3>
+
+              {/* Description */}
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "var(--text-secondary)",
+                  margin: "0 0 14px",
+                  lineHeight: "1.5",
+                }}
+              >
+                {domain.description}
+              </p>
+
+              {/* Topic Tags */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {domain.topics.map((t) => (
-                  <span key={t} className="px-2 py-0.5 text-xs rounded-md bg-white/5 text-slate-400 border border-white/10">
-                    {t}
-                  </span>
+                  <span key={t} className="topic-tag">{t}</span>
                 ))}
               </div>
             </button>
           ))}
         </div>
 
-        {/* Interview info */}
-        <div className="glass p-5 rounded-xl border border-blue-900/30 mb-8">
-          <div className="grid grid-cols-4 gap-4 text-center">
-            {[
-              { label: "Total Questions", value: "8" },
-              { label: "Warm-up", value: "2" },
-              { label: "Technical", value: "4" },
-              { label: "HR", value: "2" },
-            ].map((item) => (
-              <div key={item.label}>
-                <div className="text-2xl font-bold text-blue-400">{item.value}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{item.label}</div>
+        {/* Difficulty Selector */}
+        <div
+          className="ds-fadein"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "20px 24px",
+            marginBottom: "24px",
+            boxShadow: "var(--shadow)",
+            animationDelay: "0.18s",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "16px",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "var(--text-primary)",
+                  marginBottom: "2px",
+                }}
+              >
+                Difficulty Level
               </div>
-            ))}
+              <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                Choose how challenging the questions should be
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d}
+                  id={`difficulty-${d.toLowerCase()}`}
+                  className={`diff-pill${difficulty === d ? " active" : ""}`}
+                  onClick={() => setDifficulty(d)}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <button
-          id="start-interview-btn"
-          onClick={handleStart}
-          disabled={!selected}
-          className="w-full flex items-center justify-center gap-2 py-4 px-8 bg-blue-500 hover:bg-blue-400 disabled:opacity-40 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl transition-all glow-blue"
+        {/* Interview Info Bar */}
+        <div
+          className="ds-fadein"
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            padding: "16px 24px",
+            marginBottom: "24px",
+            boxShadow: "var(--shadow)",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "12px",
+            textAlign: "center",
+            animationDelay: "0.22s",
+          }}
         >
-          Start Interview <ChevronRight className="w-5 h-5" />
-        </button>
+          {[
+            { label: "Total Questions", value: "8" },
+            { label: "Warm-up", value: "2" },
+            { label: "Technical", value: "4" },
+            { label: "HR", value: "2" },
+          ].map((item) => (
+            <div key={item.label}>
+              <div
+                style={{
+                  fontSize: "22px",
+                  fontWeight: "800",
+                  color: "var(--accent)",
+                  letterSpacing: "-0.5px",
+                }}
+              >
+                {item.value}
+              </div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--text-muted)",
+                  marginTop: "2px",
+                  fontWeight: "500",
+                }}
+              >
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Start Button */}
+        <div className="ds-fadein" style={{ animationDelay: "0.28s" }}>
+          <button
+            id="start-interview-btn"
+            className="start-btn"
+            onClick={handleStart}
+            disabled={!selected}
+          >
+            Start Interview <ChevronRight style={{ width: "20px", height: "20px" }} />
+          </button>
+        </div>
       </div>
     </div>
   );

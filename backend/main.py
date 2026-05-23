@@ -58,3 +58,8 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "healthy", "version": "1.0.0"}
+
+
+@app.get("/api/health", tags=["Health"])
+async def api_health():
+    return {"status": "healthy", "version": "1.0.0"}

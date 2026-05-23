@@ -21,13 +21,14 @@ export default function App() {
           position="top-right"
           toastOptions={{
             style: {
-              background: "#071428",
-              color: "#e2e8f0",
-              border: "1px solid #1a3258",
-              borderRadius: "12px",
-              fontSize: "14px",
+              background: "#ffffff",
+              color: "#111827",
+              border: "1px solid #e2e5ea",
+              borderRadius: "10px",
+              fontSize: "13px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
             },
-            success: { iconTheme: { primary: "#34d399", secondary: "#040d1a" } },
+            success: { iconTheme: { primary: "#16a34a", secondary: "#ffffff" } },
             error: { iconTheme: { primary: "#f87171", secondary: "#040d1a" } },
           }}
         />
