@@ -19,8 +19,9 @@ export default function LoginPage() {
       toast.success("Welcome to PlacementPro!");
       navigate("/profile");
     } catch (err) {
+      console.error("Sign-in error details:", err);
       if (err.code !== "auth/popup-closed-by-user") {
-        toast.error("Sign-in failed. Please try again.");
+        toast.error(`Sign-in failed: ${err.message || "Please try again."}`);
       }
     }
   };
